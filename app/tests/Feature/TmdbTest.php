@@ -4,9 +4,9 @@ namespace Tests\Feature;
 
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Foundation\Testing\WithFaker;
 use Tests\TestCase;
 use Illuminate\Support\Facades\Http;
+use App\Models\Movie;
 
 /*
  Laravel añade automaticamente '/api' a las rutas de 'routes/api.php', por eso añadimos 
@@ -86,7 +86,7 @@ class TmdbTest extends TestCase
         $this->actingAs(User::factory()->create())
             ->getJson('/api/tmdb/movies/603')
             ->assertOk()
-            ->assertJsonPath('title', 'Matrix');
+            ->assertJsonPath('movie.title', 'Matrix');
     }
 
 
@@ -101,5 +101,36 @@ class TmdbTest extends TestCase
             ->getJson('/api/tmdb/movies/999999999')
             ->assertNotFound()
             ->assertJson(['message' => 'Película no encontrada.']);
+    }
+
+
+    public function test_show_includes_users_rating(): void{
+        Http::fake([
+            'api.themoviedb.org/3/movie/603*' => Http::response(['id' => 603, 'title' => 'Matrix']),
+        ]);
+
+        $movie = Movie::create(['tmdb_id' => 603, 'title' => 'Matrix']);
+
+        User::factory()->create()->movies()->attach($movie->id, ['rating' => 8]);
+        User::factory()->create()->movies()->attach($movie->id, ['rating' => 9]);
+        User::factory()->create()->movies()->attach($movie->id, ['liked' => true]); // sin nota, no cuenta
+
+        $this->actingAs(User::factory()->create())
+            ->getJson('/api/tmdb/movies/603')
+            ->assertOk()
+            ->assertJsonPath('movie.title', 'Matrix')
+            ->assertJsonPath('users_rating.average', 8.5)
+            ->assertJsonPath('users_rating.count', 2);
+    }
+
+    public function test_show_users_rating_is_empty_without_votes(): void{
+        Http::fake([
+            'api.themoviedb.org/3/movie/603*' => Http::response(['id' => 603, 'title' => 'Matrix']),
+        ]);
+
+        $this->actingAs(User::factory()->create())
+            ->getJson('/api/tmdb/movies/603')
+            ->assertJsonPath('users_rating.average', null)
+            ->assertJsonPath('users_rating.count', 0);
     }
 }

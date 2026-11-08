@@ -39,7 +39,7 @@ class TmdbApiService{
     public function getMovie(int $tmdbId): array{
         return(
             Cache::remember(
-                'tmdb:movie:$tmdbId',
+                "tmdb:movie:$tmdbId", // -> DANI-ERROR: con comillas simples me daba error: no detectaba la variable :D
                 now()->addDay(),
                 fn() => $this->get("/movie/$tmdbId", [
                     'append_to_response' => 'credits', //añadimos los "creditos" como extra 
@@ -47,7 +47,5 @@ class TmdbApiService{
             )
         );
     }
-
-
 
 }

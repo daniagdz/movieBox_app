@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Movie;
+use Illuminate\Support\Facades\DB;
 
 /*
 Clase encargada de sincronizar la BD con la API de TMDB
@@ -45,5 +46,29 @@ class MovieService{
                 ]
             )
         );
+    }
+
+
+    public function getUsersRating(int $tmdbId): array{
+        $movie = Movie::where('tmdb_id', $tmdbId)->first();
+
+        if(!$movie){
+            return(['average' => null, 'count' =>0]);
+        }
+
+        /*Constructor de Consultas 
+            -> DB::table -> consultas directas y/o para no crear modelo de Eloquent
+
+        */
+        $stats = DB::table('movie_user')
+            ->where('movie_id', $movie->id)
+            ->whereNotNull('rating')
+            ->selectRaw('AVG(rating) as average, COUNT(rating) as count')
+            ->first();
+
+        return [
+            'average' => $stats->count>0? round((float) $stats->average, 2) : null,
+            'count' => (int) $stats->count,
+        ];
     }
 }
