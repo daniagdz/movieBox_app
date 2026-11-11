@@ -2,15 +2,17 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\AddMovieToListRequest;
 use App\Models\MovieList;
 use App\Models\Movie;
 use App\Services\MovieService;
-
+use App\Http\Requests\StoreMovieListRequest;
+use App\Http\Requests\UpdateMovieListRequest;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Gate; //https://laravel.com/framework/docs/authorization
-use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\DB;
+
 
 class MovieListController extends Controller
 {
@@ -32,14 +34,14 @@ class MovieListController extends Controller
     }
 
     //validar datos y crear una lista
-    public function store(Request $request): JsonResponse
+    /*
+    '$request->validated()': validamos los parametros de la peticion que coincidan con las 'rule'
+                            definidas en el Resquest correspondiente. Los demás params son ignorados/descartados
+                            
+    */
+    public function store(StoreMovieListRequest $request): JsonResponse
     {
-        $data = $request->validate([
-            'name' => 'required|string|max:100',
-            'description' => 'nullable|string|max:1000',
-        ]);
-
-        $list = $request->user()->movieLists()->create($data);
+        $list = $request->user()->movieLists()->create($request->validated());
         $list->loadCount('movies');
 
         return response()->json($list, 201);
@@ -65,17 +67,11 @@ class MovieListController extends Controller
     }
 
 
-    public function update(Request $request, MovieList $list): JsonResponse
+    public function update(UpdateMovieListRequest $request, MovieList $list): JsonResponse
     {
-        Gate::authorize('update', $list);
-
-        $data = $request->validate([
-            'name' => 'sometimes|required|string|max:100',
-            'description' => 'sometimes|nullable|string|max:100',
-        ]);
-
-        $list->update($data);
+        $list->update($request->validated());
         $list->loadCount('movies');
+
         return response()->json($list);
     }
 
@@ -87,22 +83,12 @@ class MovieListController extends Controller
         return response()->json(null, 204);
     }
 
-    public function addMovie(Request $request, MovieList $list, MovieService $movieService): JsonResponse
+    public function addMovie(AddMovieToListRequest $request, MovieList $list, MovieService $movieService): JsonResponse
     {
-        Gate::authorize('update', $list);
 
-        $data = $request->validate([
-            'tmdb_id' => 'required|integer|min:1'
-        ]);
+        $data = $request->validated();
 
-        try {
-            $movie = $movieService->getOrImportMovie($data['tmdb_id']);
-        } catch (RequestException $e) {
-            if ($e->response->status() === 404) {
-                return response()->json(['message' => 'Película no encontrada'], 404);
-            }
-            throw $e;
-        }
+        $movie = $movieService->getOrImportMovie($data['tmdb_id']);
 
         $existInList = $list->movies()->where('movies.id', $movie->id)->exists();
 

@@ -7,7 +7,6 @@ use App\Services\TmdbApiService;
 
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Http\Client\RequestException;
 
 //Clase encargada de conectar el front con TmdbApiService
 class TmdbController extends Controller
@@ -40,38 +39,28 @@ class TmdbController extends Controller
 
     //muestra datos generales de la peli, sin añadidos personales del user, extraido de la BD y/o API
     public function show(int $tmdbId): JsonResponse{
-        try{
             return(
                 response()->json([
 
                     'movie' => $this->tmdb->getMovie($tmdbId), //datos de la BD se añaden al objeto 'movie'
                     'users_rating' => $this->movieService->getUsersRating($tmdbId), 
-                
-                    /* Tendriamos un json tipo:
+                ])
+                /* Tendriamos un json tipo:
                     {
                         "movie": {
                             "id": 603,
                             "title": "Matrix",
                             "release_date": "1999-03-31"
                         },
-                        "community_rating": {
+                        "users_rating": {
                             "average": 7.5,
                             "count": 26
                         }
                     }
                     */
-                ])
             );
 
-        }catch(RequestException $e){
-            if($e->response->status() === 404){
-                return response()->json([
-                    'message' => 'Película no encontrada.'
-                ],404);
-            }
 
-            throw $e;
-        }
     }
 
 }

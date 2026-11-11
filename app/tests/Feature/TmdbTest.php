@@ -17,7 +17,8 @@ class TmdbTest extends TestCase
 {
     use RefreshDatabase;
 
-    protected function setUp(): void{
+    protected function setUp(): void
+    {
         parent::setUp();
 
         config(['services.tmdb.token' => 'token-falso']);
@@ -25,7 +26,8 @@ class TmdbTest extends TestCase
 
 
     //Comprueba que user sin autenticación NO puede ACCEDER y recibe error 401
-    public function test_search_requires_authnetication(): void{
+    public function test_search_requires_authnetication(): void
+    {
         $this->getJson('/api/tmdb/search?query=matrix')->assertUnauthorized();
     }
 
@@ -33,7 +35,8 @@ class TmdbTest extends TestCase
     /*
     Comprueba qué pasa si NO pasamos una QUERY -> pasa el test si da error 422
     */
-    public function test_search_requires_query(): void{
+    public function test_search_requires_query(): void
+    {
         $this->actingAs(User::factory()->create())
             ->getJson('/api/tmdb/search')
             ->assertStatus(422)
@@ -45,7 +48,8 @@ class TmdbTest extends TestCase
     Comprueba que devuelve status code 200 si hacemos busquedda valida
     Aparecería una pelicula (caratula) en la busqueda
     */
-    public function test_search_returns_results(): void{
+    public function test_search_returns_results(): void
+    {
 
         //con fake hacemos una peticion falsa a una url que coincida con nuestras rutes, con el repsonse results y 
         //total _result emulamos la respuesta esperada
@@ -70,12 +74,13 @@ class TmdbTest extends TestCase
         */
 
         //Obligamos a que la cabecera envie el token
-        Http::assertSent(fn ($request) => $request->hasHeader('Authorization', 'Bearer token-falso'));    
+        Http::assertSent(fn($request) => $request->hasHeader('Authorization', 'Bearer token-falso'));
     }
 
 
     //Comprueba que al meter ID correcto nos devuelve info -> obtenemos "el detalle" de una pelicula
-    public function test_show_movie(): void{
+    public function test_show_movie(): void
+    {
         Http::fake([
             'api.themoviedb.org/3/movie/603*' => Http::response([
                 'id' => 603,
@@ -104,7 +109,8 @@ class TmdbTest extends TestCase
     }
 
 
-    public function test_show_includes_users_rating(): void{
+    public function test_show_includes_users_rating(): void
+    {
         Http::fake([
             'api.themoviedb.org/3/movie/603*' => Http::response(['id' => 603, 'title' => 'Matrix']),
         ]);
@@ -123,7 +129,8 @@ class TmdbTest extends TestCase
             ->assertJsonPath('users_rating.count', 2);
     }
 
-    public function test_show_users_rating_is_empty_without_votes(): void{
+    public function test_show_users_rating_is_empty_without_votes(): void
+    {
         Http::fake([
             'api.themoviedb.org/3/movie/603*' => Http::response(['id' => 603, 'title' => 'Matrix']),
         ]);
@@ -132,5 +139,53 @@ class TmdbTest extends TestCase
             ->getJson('/api/tmdb/movies/603')
             ->assertJsonPath('users_rating.average', null)
             ->assertJsonPath('users_rating.count', 0);
+    }
+
+    public function test_cache_key_changes_with_movie_id(): void
+    {
+        Http::fake([
+            'api.themoviedb.org/3/movie/603*' => Http::response(['id' => 603, 'title' => 'Matrix']),
+            'api.themoviedb.org/3/movie/604*' => Http::response(['id' => 604, 'title' => 'Matrix Reloaded']),
+        ]);
+
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->getJson('/api/tmdb/movies/603')
+            ->assertJsonPath('movie.title', 'Matrix');
+
+        $this->actingAs($user)
+            ->getJson('/api/tmdb/movies/604')
+            ->assertJsonPath('movie.title', 'Matrix Reloaded');
+    }
+
+    public function test_second_request_for_same_movie_uses_cache(): void
+    {
+        Http::fake([
+            'api.themoviedb.org/3/movie/603*' => Http::response(['id' => 603, 'title' => 'Matrix']),
+        ]);
+
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->getJson('/api/tmdb/movies/603')
+            ->assertOk();
+        $this->actingAs($user)
+            ->getJson('/api/tmdb/movies/603')
+            ->assertOk();
+
+        Http::assertSentCount(1);
+    }
+
+    public function test_tmdb_server_error_returns_502(): void
+    {
+        Http::fake([
+            'api.themoviedb.org/3/movie/*' => Http::response([], 500),
+        ]);
+
+        $this->actingAs(User::factory()->create())
+            ->getJson('/api/tmdb/movies/603')
+            ->assertStatus(502)
+            ->assertJson(['message' => 'El servicio de películas no está disponible.']);
     }
 }

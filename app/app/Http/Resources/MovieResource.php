@@ -16,6 +16,12 @@ Al hacer simplemente 'response()->json($movie)' devolveriamos todas las columnas
     ese modelo. ACTÚA COMO "filtro" para el getter
 */
 
+
+/*
+En el update de 'usermoviecontroller' le estoy pasando un objeto $movie que viene de 'movieservice'. 
+Basicamente cogemos el raw del movieservice, que hace peticion a la bd, y luego solo 
+    cogemos datos concretos con el resource (movieresource)
+*/
 class MovieResource extends JsonResource
 {
     /**
@@ -35,10 +41,10 @@ class MovieResource extends JsonResource
             'id' => $this->id,
             'tmdb_id' => $this->tmdb_id,
             'title' => $this->title,
-            'release_date' => $this->release_date?->toDateToString(),
+            'release_date' => $this->release_date?->toDateString(),
             'poster_path' => $this->poster_path,
             'poster_url' => $this->poster_path ?
-                'https://image.tmdb.org/t/p/w500' . $this->poster_path
+                'https://image.tmdb.org/t/p/w500/' . $this->poster_path //incluir la '/' final
                 : null,
             'state' => $this->whenPivotLoaded('movie_user', fn() => [
                 'watched' => (bool) $this->pivot->watched,

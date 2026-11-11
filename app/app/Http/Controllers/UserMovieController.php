@@ -2,9 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\UpdateMovieStateRequest;
 use App\Services\MovieService;
 use App\Models\Movie;
-use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use App\Http\Resources\MovieResource;
@@ -36,35 +36,12 @@ class UserMovieController extends Controller
     }
 
 
-    public function update(Request $request, int $tmdbId, MovieService $movies)
+    public function update(UpdateMovieStateRequest $request, int $tmdbId, MovieService $movies)
+
     {
-        //https://laravel.com/framework/docs/12.x/validation -> 'sometimes'
+        $data = $request->validated();
 
-        /*
-        'sometimes' -> indicamos que ese valor del array de datos sea ignorado / no validado 
-                        si no se modifica y evitar errores al no pone un valor
-                        Luego el 'syncWithoutDetaching' sincroniza las modificaciones para el 'id' dado, 
-                        pero manteniendo los datos no modificados
-        */
-        $data = $request->validate([
-            'watched' => 'sometimes|boolean',
-            'liked' => 'sometimes|boolean',
-            'watchlisted' => 'sometimes|boolean',
-            'rating' => 'sometimes|nullable|integer|between:1,10',
-            'review' => 'sometimes|nullable|string|max:500'
-        ]);
-
-        try {
-            $movie = $movies->getOrImportMovie($tmdbId);
-        } catch (RequestException $e) {
-            if ($e->response->status() === 404) {
-                return response()->json([
-                    'message' => 'Película no encontrada.'
-                ], 404);
-            }
-
-            throw $e;
-        }
+        $movie = $movies->getOrImportMovie($tmdbId);
 
         if (!empty($data['rating'])) {
             $data['watched'] = true;

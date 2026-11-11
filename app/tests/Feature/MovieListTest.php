@@ -375,4 +375,26 @@ class MovieListTest extends TestCase
 
         $this->assertDatabaseCount('movie_list_items', 1);
     }
+
+    public function test_non_owner_gets_403_even_with_invalid_data(): void
+    {
+        $user1 = User::factory()->create();
+        $user2 = User::factory()->create();
+        $list = $user1->movieLists()->create(['name' => 'Lista innaccesible']);
+
+        $this->actingAs($user2)
+            ->patchJson("/api/lists/{$list->id}", ['name' => ''])
+            ->assertForbidden();
+    }
+
+    public function test_non_owner_gets_403_when_adding_with_invalid_data(): void
+    {
+        $user1 = User::factory()->create();
+        $user2 = User::factory()->create();
+        $list = $user1->movieLists()->create(['name' => 'Lista innaccesible']);
+
+        $this->actingAs($user2)
+            ->postJson("/api/lists/{$list->id}/movies", [])
+            ->assertForbidden();
+    }
 }

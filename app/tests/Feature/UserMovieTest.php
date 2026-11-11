@@ -12,7 +12,8 @@ class UserMovieTest extends TestCase
 {
     use RefreshDatabase;
 
-    protected function setUp(): void{
+    protected function setUp(): void
+    {
         parent::setUp();
 
         config(['services.tmdb.token' => 'token-falso']);
@@ -32,12 +33,14 @@ class UserMovieTest extends TestCase
     //===============
     // TEST UPDATE
     //===============
-    public function test_requires_authentication(): void{
+    public function test_requires_authentication(): void
+    {
         $this->patchJson('/api/movies/603/state', ['liked' => true])->assertUnauthorized();
     }
 
 
-    public function test_like_movie_and_import(): void{
+    public function test_like_movie_and_import(): void
+    {
         $user = User::factory()->create();
 
         $this->actingAs($user)
@@ -56,7 +59,8 @@ class UserMovieTest extends TestCase
     }
 
 
-    public function test_rating_watched_movie(): void{
+    public function test_rating_watched_movie(): void
+    {
         $user = User::factory()->create();
 
         $this->actingAs($user)
@@ -67,20 +71,22 @@ class UserMovieTest extends TestCase
     }
 
 
-    public function test_some_updates(): void{
+    public function test_some_updates(): void
+    {
         $user = User::factory()->create();
 
         $this->actingAs($user)
             ->patchJson('/api/movies/603/state', ['liked' => true]); //primera accion damos like
 
         $this->actingAs($user)
-            ->patchJson('/api/movies/603/state',['rating' => 6]) //segunda accion damos puntuacion
+            ->patchJson('/api/movies/603/state', ['rating' => 6]) //segunda accion damos puntuacion
             ->assertJsonPath('state.liked', true) //comprobamos que los cambios son acumulativos -> actualiza N cambios
-            ->assertJsonPath('state.rating', 6);  
+            ->assertJsonPath('state.rating', 6);
     }
 
 
-    public function test_remove_states_keeps_movie(): void{
+    public function test_remove_states_keeps_movie(): void
+    {
         $user = User::factory()->create();
 
         $this->actingAs($user)
@@ -96,7 +102,8 @@ class UserMovieTest extends TestCase
     }
 
 
-    public function test_rating_oorange(): void{
+    public function test_rating_oorange(): void
+    {
         $user = User::factory()->create();
 
         $this->actingAs($user)
@@ -106,7 +113,8 @@ class UserMovieTest extends TestCase
     }
 
 
-    public function test_unknown_movie(): void{
+    public function test_unknown_movie(): void
+    {
         $user = User::factory()->create();
 
         $this->actingAs($user)
@@ -120,7 +128,8 @@ class UserMovieTest extends TestCase
     // TEST SHOW e INDEX
     //==================
 
-    public function test_show_returns_empty_state_for_unknown_movie(): void{
+    public function test_show_returns_empty_state_for_unknown_movie(): void
+    {
         $this->actingAs(User::factory()->create())
             ->getJson('/api/movies/603/state')
             ->assertOk()
@@ -132,7 +141,8 @@ class UserMovieTest extends TestCase
     }
 
 
-    public function test_show_returns_user_state(): void{
+    public function test_show_returns_user_state(): void
+    {
         $user = User::factory()->create();
 
         $this->actingAs($user)->patchJson('/api/movies/603/state', ['liked' => true, 'rating' => 9]);
@@ -146,7 +156,8 @@ class UserMovieTest extends TestCase
     }
 
 
-    public function test_show_does_not_leak_state_from_other_users(): void{
+    public function test_show_does_not_leak_state_from_other_users(): void
+    {
         $user1 = User::factory()->create();
         $this->actingAs($user1)->patchJson('/api/movies/603/state', ['liked' => true]);
 
@@ -157,14 +168,16 @@ class UserMovieTest extends TestCase
     }
 
 
-    public function test_index_valid_state(): void{
+    public function test_index_valid_state(): void
+    {
         $user = User::factory()->create();
 
         $this->actingAs($user)->getJson('/api/movies')->assertStatus(422);
         $this->actingAs($user)->getJson('/api/movies?state=otro')->assertStatus(422);
     }
 
-    public function test_index_filters_by_state(): void{
+    public function test_index_filters_by_state(): void
+    {
         $user = User::factory()->create();
 
         $this->actingAs($user)->patchJson('/api/movies/603/state', ['watchlisted' => true]);
@@ -180,7 +193,8 @@ class UserMovieTest extends TestCase
             ->assertJsonCount(0, 'data');
     }
 
-    public function test_index_returns_rated_movies(): void{
+    public function test_index_returns_rated_movies(): void
+    {
         $user = User::factory()->create();
 
         $this->actingAs($user)->patchJson('/api/movies/603/state', ['liked' => true]);
@@ -196,12 +210,69 @@ class UserMovieTest extends TestCase
             ->assertJsonCount(1, 'data');
     }
 
-    public function test_index_returns_own_movies(): void{
+    public function test_index_returns_own_movies(): void
+    {
         $other = User::factory()->create();
         $this->actingAs($other)->patchJson('/api/movies/603/state', ['liked' => true]);
 
         $this->actingAs(User::factory()->create())
             ->getJson('/api/movies?state=liked')
             ->assertJsonCount(0, 'data');
+    }
+
+
+    //2026/11/08
+    public function test_index_returns_poster_and_state(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->patchJson('/api/movies/603/state', ['liked' => true, 'rating' => 9]);
+
+        $this->actingAs($user)
+            ->getJson('/api/movies?state=liked')
+            ->assertOk()
+            ->assertJsonPath('data.0.title', 'Matrix')
+            ->assertJsonPath('data.0.release_date', '1999-03-31')
+            ->assertJsonPath('data.0.poster_url', 'https://image.tmdb.org/t/p/w500/matrix.jpg')
+            ->assertJsonPath('data.0.state.rating', 9)
+            ->assertJsonPath('data.0.state.liked', true)
+            ->assertJsonPath('data.0.state.watchlisted', false);
+    }
+
+    public function test_index_does_not_expose_internal_fields(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)->patchJson('/api/movies/603/state', ['liked' => true]);
+
+        $this->actingAs($user)
+            ->getJson('/api/movies?state=liked')
+            ->assertJsonMissingPath('data.0.created_at')
+            ->assertJsonMissingPath('data.0.updated_at')
+            ->assertJsonMissingPath('data.0.pivot');
+    }
+
+    public function test_update_returns_movie_resource(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user)
+            ->patchJson('/api/movies/603/state', ['liked' => true])
+            ->assertOk()
+            ->assertJsonPath('movie.poster_url', 'https://image.tmdb.org/t/p/w500/matrix.jpg')
+            ->assertJsonPath('state.liked', true)
+            ->assertJsonMissingPath('movie.created_at');
+    }
+
+    public function test_poster_url_is_null_without_poster(): void
+    {
+        $user = User::factory()->create();
+        $movie = Movie::create(['tmdb_id' => 700, 'title' => 'No hay poster']);//se crea pelicula sin poster_path/url
+        $user->movies()->attach($movie->id, ['liked' => true]);
+
+        $this->actingAs($user)
+            ->getJson('/api/movies?state=liked')
+            ->assertJsonPath('data.0.poster_path', null)
+            ->assertJsonPath('data.0.poster_url', null);
     }
 }
