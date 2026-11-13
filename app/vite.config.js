@@ -3,6 +3,7 @@ import laravel from 'laravel-vite-plugin';
 import { bunny } from 'laravel-vite-plugin/fonts';
 import tailwindcss from '@tailwindcss/vite';
 
+// https://vite.dev/config/
 export default defineConfig({
     plugins: [
         laravel({

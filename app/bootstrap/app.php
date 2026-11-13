@@ -14,8 +14,11 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__ . '/../routes/console.php',
         health: '/up',
     )
+    // https://laravel.com/framework/docs/sanctum
+    // https://laravel.com/framework/docs/12.x/authentication
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->statefulApi(); //hace que Sanctum auntentique por cookie session
+        $middleware->redirectGuestsTo(fn (Request $request) => null);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen( //<- hace que cualquier error se devuelva como un json
