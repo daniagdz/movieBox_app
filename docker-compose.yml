@@ -57,5 +57,18 @@ services:
       db:
         condition: service_healthy
 
+  frontend:
+    image: node:22-alpine
+    container_name: lb_frontend
+    working_dir: /usr/src/app
+    volumes:
+      - ./frontend:/usr/src/app
+      - /usr/src/app/node_modules
+    command: sh -c "npm install && npm run dev -- --host"
+    ports:
+      - "5173:5173"
+    depends_on:
+      - web
+
 volumes:
   db_data:
